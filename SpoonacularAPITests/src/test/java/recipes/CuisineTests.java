@@ -1,11 +1,21 @@
 package recipes;
 
+import dto.response.CuisineResponse;
+import io.restassured.RestAssured;
+import io.restassured.builder.RequestSpecBuilder;
+import io.restassured.builder.ResponseSpecBuilder;
+import io.restassured.http.ContentType;
+import io.restassured.specification.RequestSpecification;
+import io.restassured.specification.ResponseSpecification;
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import utils.ConfigUtils;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 
 public class CuisineTests {
@@ -39,24 +49,49 @@ public class CuisineTests {
             "Vietnamese"
     };
 
+    ResponseSpecification responseSpecification = null;
+    RequestSpecification requestSpecification = null;
+
+    @BeforeEach
+    void beforeTest(){
+        responseSpecification = new ResponseSpecBuilder()
+                .expectStatusCode(200)
+                .expectStatusLine("HTTP/1.1 200 OK")
+                .expectContentType(ContentType.JSON)
+                .expectResponseTime(Matchers.lessThan(5000L))
+                .build();
+
+        requestSpecification = new RequestSpecBuilder()
+                .addQueryParam("apiKey", ConfigUtils.getApiKey())
+                //.log(LogDetail.ALL)
+                .build();
+
+        RestAssured.enableLoggingOfRequestAndResponseIfValidationFails();
+    }
+
     @Test
     void cuisineWithoutParametersThenResultsIsPresentTest(){
-        given()
-                .queryParam("apiKey", ConfigUtils.getApiKey())
+        CuisineResponse response = given()
+                .spec(requestSpecification)
                 .when()
                 .post( ConfigUtils.getBaseUrl() + "/recipes/cuisine")
                 .prettyPeek()
                 .then()
                 .assertThat()
-                .statusCode(200)
-                .body("cuisine", containsString("Mediterranean"))
-                .body("cuisines", hasItem(oneOf(supportedCuisinesArray)))
-                .body("confidence", equalTo(0.0F));
+                .spec(responseSpecification)
+                .extract()
+                .body()
+                .as(CuisineResponse.class);
+
+        assertThat(response.getCuisine(), oneOf(supportedCuisinesArray));
+        response.getCuisines().stream()
+                .forEach(cuisine -> assertThat(cuisine, oneOf(supportedCuisinesArray)));
+        assertThat(response.getConfidence(), equalTo(0F));
     }
 
     @ParameterizedTest
     @CsvSource({
-            "pasta, oil, en, Mediterranean, 0.0",
+            "pasta, oil, en, Italian, 0.0",
             "burger, butter, de, American, 0.85"
     })
     void cuisineGivenFullParametersThenResultsIsPresentTest(String title,
@@ -64,8 +99,8 @@ public class CuisineTests {
                                                             String language,
                                                             String expectCuisine,
                                                             float expectConfidence){
-        given()
-                .queryParam("apiKey", ConfigUtils.getApiKey())
+        CuisineResponse response = given()
+                .spec(requestSpecification)
                 .queryParam("language", language)
                 .contentType("application/x-www-form-urlencoded")
                 .formParam("title", title)
@@ -75,9 +110,14 @@ public class CuisineTests {
                 .prettyPeek()
                 .then()
                 .assertThat()
-                .statusCode(200)
-                .body("cuisine", containsString(expectCuisine))
-                .body("cuisines", hasItem(oneOf(supportedCuisinesArray)))
-                .body("confidence", equalTo(expectConfidence));
+                .spec(responseSpecification)
+                .extract()
+                .body()
+                .as(CuisineResponse.class);
+
+        assertThat(response.getCuisine(), containsStringIgnoringCase(expectCuisine));
+        response.getCuisines().stream()
+                .forEach(cuisine -> assertThat(cuisine, oneOf(supportedCuisinesArray)));
+        assertThat(response.getConfidence(), equalTo(expectConfidence));
     }
 }

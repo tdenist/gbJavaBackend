@@ -20,6 +20,7 @@ public class CRUDProductTest {
 
     static ProductService productService;
     Faker faker = new Faker();
+    Product product;
     Response<Product> response;
     int idProduct;
 
@@ -31,42 +32,44 @@ public class CRUDProductTest {
     @Test
     void createReadUpdateDeleteProductTest() throws IOException {
 
-        Product newProduct = new Product()
+        product = new Product()
                 .withTitle(faker.food().ingredient())
                 .withCategoryTitle("Food")
                 .withPrice((int) (Math.random()*1000));
-        response = productService.createProduct(newProduct).execute();
+        response = productService.createProduct(product).execute();
         assertThat(response.isSuccessful(), CoreMatchers.is(true));
         assertThat(response.code(), equalTo(201));
-        assertThat(response.body().getTitle(), containsStringIgnoringCase(newProduct.getTitle()));
-        assertThat(response.body().getCategoryTitle(), containsStringIgnoringCase(newProduct.getCategoryTitle()));
-        assertThat(response.body().getPrice(), equalTo(newProduct.getPrice()));
+        assertThat(response.body().getTitle(), containsStringIgnoringCase(product.getTitle()));
+        assertThat(response.body().getCategoryTitle(), containsStringIgnoringCase(product.getCategoryTitle()));
+        assertThat(response.body().getPrice(), equalTo(product.getPrice()));
         idProduct = response.body().getId();
 
         response = productService.getProductById(idProduct).execute();
         assertThat(response.isSuccessful(), CoreMatchers.is(true));
         assertThat(response.code(), equalTo(200));
-        assertThat(response.body().getTitle(), containsStringIgnoringCase(newProduct.getTitle()));
-        assertThat(response.body().getCategoryTitle(), containsStringIgnoringCase(newProduct.getCategoryTitle()));
-        assertThat(response.body().getPrice(), equalTo(newProduct.getPrice()));
+        assertThat(response.body().getTitle(), containsStringIgnoringCase(product.getTitle()));
+        assertThat(response.body().getCategoryTitle(), containsStringIgnoringCase(product.getCategoryTitle()));
+        assertThat(response.body().getPrice(), equalTo(product.getPrice()));
 
-        Product updateProduct = new Product()
+        product = new Product()
                 .withId(idProduct)
                 .withTitle(faker.food().ingredient())
                 .withCategoryTitle("Food")
                 .withPrice((int) (Math.random()*1000));
-        response = productService.modifyProduct(updateProduct).execute();
+        response = productService.modifyProduct(product).execute();
         assertThat(response.isSuccessful(), CoreMatchers.is(true));
         assertThat(response.code(), equalTo(200));
         assertThat(response.body().getId(), equalTo(idProduct));
-        assertThat(response.body().getTitle(), containsStringIgnoringCase(updateProduct.getTitle()));
-        assertThat(response.body().getCategoryTitle(), containsStringIgnoringCase(updateProduct.getCategoryTitle()));
-        assertThat(response.body().getPrice(), equalTo(updateProduct.getPrice()));
+        assertThat(response.body().getTitle(), containsStringIgnoringCase(product.getTitle()));
+        assertThat(response.body().getCategoryTitle(), containsStringIgnoringCase(product.getCategoryTitle()));
+        assertThat(response.body().getPrice(), equalTo(product.getPrice()));
 
         Response<List<Product>> responseProductList = productService.getProducts().execute();
+        assertThat(response.isSuccessful(), CoreMatchers.is(true));
+        assertThat(response.code(), equalTo(200));
         assertThat(
             responseProductList.body().stream()
-                .anyMatch(product -> product.equals(updateProduct)),
+                .anyMatch(p -> p.equals(product)),
             CoreMatchers.is(true)
         );
     }
@@ -75,5 +78,14 @@ public class CRUDProductTest {
     void deleteProduct() throws IOException {
         Response<ResponseBody> response = productService.deleteProduct(idProduct).execute();
         assertThat(response.isSuccessful(), CoreMatchers.is(true));
+
+        Response<List<Product>> responseProductList = productService.getProducts().execute();
+        assertThat(response.isSuccessful(), CoreMatchers.is(true));
+        assertThat(response.code(), equalTo(200));
+        assertThat(
+                responseProductList.body().stream()
+                        .noneMatch(p -> p.equals(product)),
+                CoreMatchers.is(true)
+        );
     }
 }
